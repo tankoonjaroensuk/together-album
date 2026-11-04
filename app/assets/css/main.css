@@ -1,0 +1,36 @@
+@import url('https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..600;1,6..96,400..600&family=Noto+Serif+Thai:wght@400;500&family=IBM+Plex+Sans+Thai:ital,wght@0,400;0,500;0,600;1,400&display=swap');
+@import "tailwindcss";
+
+@theme {
+  /* Bodoni is the Didone of the invitation; it has no Thai glyphs, so Thai headings fall through to Noto Serif Thai */
+  --font-heading: "Bodoni Moda", "Noto Serif Thai", serif;
+  --font-body: "IBM Plex Sans Thai", ui-sans-serif, sans-serif;
+
+  /* Palette taken from the invitation: warm ivory paper, silver tray, gold wax seal */
+  --color-ivory: #faf6ef;
+  --color-charcoal: #3b3836;
+  --color-silver: #b9b8b5;
+  --color-silver-light: #e6e5e2;
+  --color-gold: #b79b68;
+  --color-taupe: #7d7366;
+}
+
+:root {
+  /* The hero and the sticky featured photo size themselves around the navbar, so they all read this one value */
+  --navbar-height: 3.75rem;
+}
+
+/* Lenis handles smooth scrolling (including anchor links) and breaks if native smooth scrolling is also on */
+html:not(.lenis) {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--color-ivory);
+  color: var(--color-charcoal);
+}
+
+::selection {
+  background-color: color-mix(in srgb, var(--color-gold) 35%, transparent);
+}
