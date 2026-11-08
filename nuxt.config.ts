@@ -6,6 +6,10 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   modules: ['lenis/nuxt'],
   css: ['lenis/dist/lenis.css', '~/assets/css/main.css'],
+  app: {
+    // Tells screen readers to read Thai and browsers to break lines between Thai words
+    head: { htmlAttrs: { lang: 'th' } },
+  },
   // Filled from NUXT_* environment variables, see .env.example
   runtimeConfig: {
     cloudinaryApiKey: '',

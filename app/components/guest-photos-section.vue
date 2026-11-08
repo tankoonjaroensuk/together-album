@@ -1,5 +1,6 @@
 <template>
-  <section aria-labelledby="guest-photos-heading" class="px-2 pb-16 pt-12 sm:px-3 sm:pb-24">
+  <!-- Linked from the upload section; the scroll margin keeps the heading clear of the sticky navbar -->
+  <section id="guest-photos" aria-labelledby="guest-photos-heading" class="scroll-mt-(--navbar-height) px-2 pb-16 pt-12 sm:px-3 sm:pb-24">
     <h2 id="guest-photos-heading" class="px-4 text-center font-heading text-2xl text-charcoal sm:text-3xl">
       ภาพจากแขก
     </h2>

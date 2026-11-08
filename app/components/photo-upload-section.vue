@@ -1,5 +1,6 @@
 <template>
-  <section id="upload">
+  <!-- The scroll margin keeps an anchor jump from landing under the sticky navbar -->
+  <section id="upload" class="scroll-mt-(--navbar-height)">
     <div class="mx-auto max-w-xl px-6 pt-10 text-center">
       <h2 class="font-heading text-3xl leading-snug text-charcoal sm:text-4xl">
         ร่วมแชร์ภาพความทรงจำ
@@ -29,7 +30,7 @@
       </template>
     </polaroid-line-carousel>
 
-    <div v-if="unsentPhotos.length" class="mx-auto max-w-xl px-6 pb-16 sm:pb-24">
+    <div v-if="unsentPhotos.length" class="mx-auto max-w-xl px-6">
       <label class="block">
         <span class="text-sm text-taupe">ชื่อของคุณ (ไม่บังคับ)</span>
         <!-- 16px text stops iOS from zooming the page when the field is focused -->
@@ -52,7 +53,22 @@
         {{ uploadButtonLabel }}
       </button>
     </div>
-    <div v-else class="pb-16 sm:pb-24" />
+
+    <div class="mx-auto max-w-xl px-6 pb-16 text-center sm:pb-24">
+      <p v-if="uploadedPhotoCount && !unsentPhotos.length" class="text-charcoal">
+        ส่งแล้ว {{ uploadedPhotoCount }} รูป ขอบคุณมากนะ
+        <span class="block text-sm text-taupe">มีรูปอีกไหม แตะรูปเปล่าบนเชือกเพื่อส่งเพิ่มได้เลย</span>
+      </p>
+      <!-- The guest gallery sits below the couple's photos, a long scroll away on a phone -->
+      <a
+        v-if="guestPhotos.length"
+        href="#guest-photos"
+        class="mt-5 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-charcoal underline decoration-gold decoration-2 underline-offset-4"
+      >
+        ดูรูปจากแขกทั้งหมด {{ guestPhotos.length }} รูป
+        <span aria-hidden="true">↓</span>
+      </a>
+    </div>
   </section>
 </template>
 
@@ -80,6 +96,7 @@ const { photos: guestPhotos } = useGuestPhotos()
 const cloudName = useRuntimeConfig().public.cloudinaryCloudName
 
 const hasSelectedPhotos = computed(() => selectedPhotos.value.length > 0)
+const uploadedPhotoCount = computed(() => selectedPhotos.value.filter(photo => photo.status === 'uploaded').length)
 
 // The visitor's own photos first, newest beside the empty print, then the latest photos from everyone else
 const carouselPhotos = computed<CarouselPhoto[]>(() => {
