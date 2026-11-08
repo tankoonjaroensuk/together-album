@@ -11,19 +11,21 @@
     <!-- Outside the padded column so the string runs edge to edge -->
     <polaroid-line-carousel class="mt-4" :photos="carouselPhotos" @retry="retryPhoto">
       <template #add-card>
-        <label for="photo-input" class="block cursor-pointer focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-gold">
+        <label class="relative block cursor-pointer focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-gold">
           <span class="flex aspect-square items-center justify-center bg-charcoal/5 text-silver">
             <camera-icon class="size-12" />
           </span>
           <span class="flex h-11 items-center justify-center text-sm font-semibold text-charcoal">
             {{ hasSelectedPhotos ? 'เพิ่มอีก' : 'เพิ่มรูป' }}
           </span>
+          <!-- The transparent input covers the whole print so a tap lands on it directly:
+               iOS Safari can ignore a tap passed on from a label to a visually hidden file input, mostly on a moving card -->
           <input
             id="photo-input"
             type="file"
             accept="image/*"
             multiple
-            class="sr-only"
+            class="absolute inset-0 size-full cursor-pointer opacity-0"
             @change="addPhotosFromFileInput"
           >
         </label>

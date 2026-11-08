@@ -22,6 +22,15 @@ export interface SelectedPhoto {
 
 const CONCURRENT_UPLOADS = 3
 
+let photoIdCounter = 0
+
+/** crypto.randomUUID is missing on plain http (e.g. a dev server opened by IP on a phone) and before iOS 15.4 */
+function createPhotoId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID()
+  photoIdCounter += 1
+  return `photo-${Date.now()}-${photoIdCounter}`
+}
+
 const REFUSAL_MESSAGES: Record<number, string> = {
   403: 'ตอนนี้ปิดรับรูปแล้ว ขอบคุณที่ร่วมแชร์นะ',
   429: 'ส่งรูปเยอะมากในชั่วโมงนี้ รอสักพักแล้วกด "ลองใหม่" ใต้รูปนะ',
@@ -72,7 +81,7 @@ export function usePhotoUpload() {
 
       knownIdentities.add(identity)
       selectedPhotos.value.push({
-        id: crypto.randomUUID(),
+        id: createPhotoId(),
         file,
         uploadFile: shrunk?.upload ?? file,
         previewUrl: URL.createObjectURL(shrunk?.thumbnail ?? file),
