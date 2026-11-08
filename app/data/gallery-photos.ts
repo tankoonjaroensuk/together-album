@@ -44,6 +44,5 @@ export const rightColumnPhotos: GalleryPhoto[] = [
 // Featured first because it is the first photo phones show; arrows in the lightbox follow this order
 export const lightboxPhotos: GalleryPhoto[] = [featuredPhoto, ...leftColumnPhotos, ...rightColumnPhotos]
 
-// Landscape shot for wide screens, the portrait-friendly shot for phones
-export const heroPhotoDesktopSrc = leftColumnPhotos[1]!.src
-export const heroPhotoMobileSrc = rightColumnPhotos[2]!.src
+// The landscape sunset shot heads the page on every screen size
+export const heroPhotoSrc = leftColumnPhotos[1]!.src

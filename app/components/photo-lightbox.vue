@@ -22,7 +22,7 @@
       >
     </div>
 
-    <p class="absolute left-1/2 top-5 -translate-x-1/2 font-label text-sm tracking-wide text-ivory/70">
+    <p class="absolute left-1/2 top-5 -translate-x-1/2 font-heading text-sm tracking-wide text-ivory/70">
       {{ photoCounterLabel }}
     </p>
 
