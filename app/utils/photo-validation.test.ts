@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { describeRejections, getPhotoIdentity, getPhotoRejectionReason } from './photo-validation'
+import { canSendUnshrunkPhoto, describeRejections, getPhotoIdentity, getPhotoRejectionReason } from './photo-validation'
 
 const MB = 1024 * 1024
 
@@ -13,7 +13,11 @@ describe('getPhotoRejectionReason', () => {
   })
 
   it('rejects a photo over the size limit', () => {
-    expect(getPhotoRejectionReason({ type: 'image/jpeg', size: 30 * MB }, false)).toBe('too-large')
+    expect(getPhotoRejectionReason({ type: 'image/jpeg', size: 60 * MB }, false)).toBe('too-large')
+  })
+
+  it('accepts a 200MP phone photo, since it is shrunk before sending', () => {
+    expect(getPhotoRejectionReason({ type: 'image/jpeg', size: 35 * MB }, false)).toBeNull()
   })
 
   it('rejects a photo that was already added', () => {
@@ -22,6 +26,16 @@ describe('getPhotoRejectionReason', () => {
 
   it('reports the file type before the size', () => {
     expect(getPhotoRejectionReason({ type: 'video/mp4', size: 90 * MB }, false)).toBe('not-image')
+  })
+})
+
+describe('canSendUnshrunkPhoto', () => {
+  it('sends a file up to Cloudinary\'s 10 MB free-plan limit', () => {
+    expect(canSendUnshrunkPhoto(10 * MB)).toBe(true)
+  })
+
+  it('refuses a file over that limit', () => {
+    expect(canSendUnshrunkPhoto(10 * MB + 1)).toBe(false)
   })
 })
 

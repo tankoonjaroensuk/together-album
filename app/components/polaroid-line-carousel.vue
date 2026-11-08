@@ -7,7 +7,7 @@
     :style="{ height: `${rootHeight}px`, '--card-width': `${cardWidth}px` }"
     role="region"
     aria-roledescription="carousel"
-    aria-label="รูปที่เลือกไว้และช่องเพิ่มรูป"
+    aria-label="ช่องเพิ่มรูป รูปที่เลือกไว้ และรูปล่าสุดจากแขก"
     tabindex="0"
     @keydown.arrow-left.prevent="showNeighbour(-1)"
     @keydown.arrow-right.prevent="showNeighbour(1)"
@@ -65,6 +65,9 @@
             <check-icon class="size-4 text-gold" />
             ส่งแล้ว
           </p>
+          <p v-else-if="!photo.status && photo.caption" class="truncate">
+            {{ photo.caption }}
+          </p>
           <template v-else-if="photo.status === 'failed'">
             <p>ส่งไม่สำเร็จ</p>
             <button
@@ -101,8 +104,10 @@ export interface CarouselPhoto {
   id: string
   src: string
   alt: string
-  /** Shown in the blank strip under the photo; photos without a status are plain prints */
+  /** Shown in the blank strip under the photo; photos without a status are other guests' prints */
   status?: PhotoUploadStatus
+  /** Written in the blank strip of a print without a status, e.g. who sent it */
+  caption?: string
   /** 0 to 1 while the photo is uploading */
   progress?: number
 }
@@ -282,13 +287,46 @@ function startAnimation(prefersReducedMotion: boolean) {
   animationFrameId = requestAnimationFrame(drawFrame)
 }
 
-// The line slides over to a newly added photo, which sits right beside the empty print
-watch(() => props.photos.length, (photoCount, previousCount) => {
+watch(() => props.photos.map(photo => photo.id), (photoIds, previousPhotoIds) => {
   cardElements.length = printCount.value
   swingAngles.length = printCount.value
   swingVelocities.length = printCount.value
-  if (photoCount > previousCount) showPhotoAt(newestPhotoIndex.value)
+
+  // Photos with an upload status are the visitor's own: the line slides to one they just picked, beside the empty print
+  const previousIdSet = new Set(previousPhotoIds)
+  const hasNewOwnPhoto = props.photos.some(photo => photo.status && !previousIdSet.has(photo.id))
+  if (hasNewOwnPhoto) {
+    showPhotoAt(newestPhotoIndex.value)
+    return
+  }
+
+  keepSettlingPrintInView(photoIds, previousPhotoIds)
 })
+
+/**
+ * Other guests' photos arrive in front of older ones, which moves every print after them along the string.
+ * Shifts the line by the same amount so the print it is settling on stays in the centre, even mid-drag.
+ */
+function keepSettlingPrintInView(photoIds: string[], previousPhotoIds: string[]) {
+  const spacing = cardSpacing.value
+  const settlingIndex = Math.round(lineState.target / spacing)
+  const settlingPhotoId = previousPhotoIds[settlingIndex - addCardCount.value]
+  const newPhotoPosition = settlingPhotoId ? photoIds.indexOf(settlingPhotoId) : -1
+
+  if (newPhotoPosition === -1) {
+    // That print left the string (it fell off the end or was deleted): stay put, but never past the last print
+    lineState.target = Math.min(lineState.target, (printCount.value - 1) * spacing)
+    return
+  }
+
+  const shiftPx = (newPhotoPosition + addCardCount.value - settlingIndex) * spacing
+  if (!shiftPx) return
+  lineState.offset += shiftPx
+  lineState.target += shiftPx
+  if (dragState) dragState.startOffset += shiftPx
+  // The animation updates this every frame, but it is paused while the string is scrolled out of view
+  activeIndex.value = getNearestIndex(lineState.offset, spacing, printCount.value)
+}
 
 // Keep the line on the same print when a resize changes the spacing
 watch(cardSpacing, () => {

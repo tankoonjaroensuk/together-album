@@ -1,5 +1,8 @@
 export interface GalleryPhoto {
+  /** Full-size image for the lightbox */
   src: string
+  /** Smaller image for the grid; `src` is used when there is none */
+  thumbnailSrc?: string
   alt: string
 }
 

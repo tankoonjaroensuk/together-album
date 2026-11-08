@@ -1,30 +1,30 @@
-import { describeRejections, getPhotoIdentity, getPhotoRejectionReason } from '~/utils/photo-validation'
+import { canSendUnshrunkPhoto, describeRejections, getPhotoIdentity, getPhotoRejectionReason } from '~/utils/photo-validation'
 import type { PhotoRejectionReason } from '~/utils/photo-validation'
+import { sendGuestPhoto, UploadRefusedError } from '~/utils/send-guest-photo'
+import { shrinkPhoto } from '~/utils/shrink-photo'
 
 export type PhotoUploadStatus = 'pending' | 'uploading' | 'uploaded' | 'failed'
 
 export interface SelectedPhoto {
   id: string
   file: File
+  /** The shrunk copy, or the original file when the browser could not shrink it */
+  uploadFile: Blob
   previewUrl: string
   status: PhotoUploadStatus
   /** 0 to 1 while the photo is uploading */
   progress: number
+  /** Cloudinary's id once uploaded, so the same photo is not hung on the string twice */
+  publicId?: string
+  /** Why the server refused the last attempt, for the toast; empty when it was not refused */
+  refusalMessage?: string
 }
 
-const SIMULATED_UPLOAD_STEPS = 10
-const SIMULATED_STEP_DELAY_MS = 120
-// Lets the failed state and the retry button be seen before the real backend exists
-const SIMULATED_FAILURE_RATE = import.meta.dev ? 0.3 : 0
 const CONCURRENT_UPLOADS = 3
 
-// Stands in for the real upload request until the backend exists
-async function sendPhotoToServer(_file: File, _guestName: string, onProgress: (progress: number) => void) {
-  for (let step = 1; step <= SIMULATED_UPLOAD_STEPS; step++) {
-    await new Promise(resolve => setTimeout(resolve, SIMULATED_STEP_DELAY_MS))
-    if (step === SIMULATED_UPLOAD_STEPS / 2 && Math.random() < SIMULATED_FAILURE_RATE) throw new Error('Simulated network failure')
-    onProgress(step / SIMULATED_UPLOAD_STEPS)
-  }
+const REFUSAL_MESSAGES: Record<number, string> = {
+  403: 'ตอนนี้ปิดรับรูปแล้ว ขอบคุณที่ร่วมแชร์นะ',
+  429: 'ส่งรูปเยอะมากในชั่วโมงนี้ รอสักพักแล้วกด "ลองใหม่" ใต้รูปนะ',
 }
 
 /** Runs `task` for every item with at most `limit` running at once, so a weak connection is not asked for everything at the same time. */
@@ -38,6 +38,7 @@ async function runWithLimit<T>(items: T[], limit: number, task: (item: T) => Pro
 
 export function usePhotoUpload() {
   const { showToast } = useToast()
+  const recentGuestUploads = useRecentGuestUploads()
   const selectedPhotos = ref<SelectedPhoto[]>([])
   const guestName = ref('')
 
@@ -62,11 +63,19 @@ export function usePhotoUpload() {
         rejections.push(rejection)
         continue
       }
+
+      const shrunk = await shrinkPhoto(file)
+      if (!shrunk && !canSendUnshrunkPhoto(file.size)) {
+        rejections.push('too-large-to-send-unshrunk')
+        continue
+      }
+
       knownIdentities.add(identity)
       selectedPhotos.value.push({
         id: crypto.randomUUID(),
         file,
-        previewUrl: (await createPhotoThumbnailUrl(file)) ?? URL.createObjectURL(file),
+        uploadFile: shrunk?.upload ?? file,
+        previewUrl: URL.createObjectURL(shrunk?.thumbnail ?? file),
         status: 'pending',
         progress: 0,
       })
@@ -81,13 +90,17 @@ export function usePhotoUpload() {
 
     photo.status = 'uploading'
     photo.progress = 0
+    photo.refusalMessage = undefined
     try {
-      await sendPhotoToServer(photo.file, guestName.value.trim(), (progress) => {
+      const uploaded = await sendGuestPhoto(photo.uploadFile, guestName.value.trim(), (progress) => {
         photo.progress = progress
       })
+      photo.publicId = uploaded.publicId
       photo.status = 'uploaded'
+      recentGuestUploads.value.unshift(uploaded)
     } catch (error) {
       console.error(`Failed to upload ${photo.file.name}`, error)
+      if (error instanceof UploadRefusedError) photo.refusalMessage = REFUSAL_MESSAGES[error.statusCode]
       photo.status = 'failed'
     }
   }
@@ -96,22 +109,26 @@ export function usePhotoUpload() {
     const results = selectedPhotos.value.filter(photo => photoIds.includes(photo.id))
     const failedCount = results.filter(photo => photo.status === 'failed').length
     const uploadedCount = results.length - failedCount
+    const refusalMessage = results.find(photo => photo.refusalMessage)?.refusalMessage
 
     if (failedCount === 0) showToast(`อัปโหลดสำเร็จ ${uploadedCount} รูป ขอบคุณมากๆ เลยนะ`)
+    else if (refusalMessage) showToast(refusalMessage)
     else if (uploadedCount === 0) showToast(`ส่งไม่สำเร็จ ${failedCount} รูป ลองใหม่อีกครั้งนะ`)
     else showToast(`ส่งสำเร็จ ${uploadedCount} รูป ส่งไม่สำเร็จ ${failedCount} รูป กด "ลองใหม่" ใต้รูป`)
   }
 
-  async function uploadUnsentPhotos() {
-    // Newest first, the same order as on the string, so the photo in view is the first to show progress
-    const photoIds = unsentPhotos.value.map(photo => photo.id).reverse()
+  async function uploadPhotos(photoIds: string[]) {
     await runWithLimit(photoIds, CONCURRENT_UPLOADS, uploadPhoto)
     reportUploadResult(photoIds)
   }
 
-  async function retryPhoto(photoId: string) {
-    await uploadPhoto(photoId)
-    reportUploadResult([photoId])
+  function uploadUnsentPhotos() {
+    // Newest first, the same order as on the string, so the photo in view is the first to show progress
+    return uploadPhotos(unsentPhotos.value.map(photo => photo.id).reverse())
+  }
+
+  function retryPhoto(photoId: string) {
+    return uploadPhotos([photoId])
   }
 
   // Preview URLs keep their image data in memory until revoked

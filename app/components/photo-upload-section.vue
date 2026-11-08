@@ -57,7 +57,10 @@
 </template>
 
 <script setup lang="ts">
+import type { CarouselPhoto } from '~/components/polaroid-line-carousel.vue'
 import { lightboxPhotos } from '~/data/gallery-photos'
+import { buildCloudinaryImageUrl, GUEST_PHOTO_THUMBNAIL_WIDTH_PX } from '~/utils/cloudinary-image-url'
+import { getGuestDisplayName } from '~/utils/guest-display-name'
 
 const {
   selectedPhotos,
@@ -70,14 +73,33 @@ const {
   retryPhoto,
 } = usePhotoUpload()
 
+// Every print on the string is simulated each frame, so it holds only the latest guest photos; the gallery below has them all
+const MAX_GUEST_PRINTS_ON_STRING = 30
+
+const { photos: guestPhotos } = useGuestPhotos()
+const cloudName = useRuntimeConfig().public.cloudinaryCloudName
+
 const hasSelectedPhotos = computed(() => selectedPhotos.value.length > 0)
 
-// Newest first, so the latest photo hangs right beside the empty print used to add more
-const carouselPhotos = computed(() =>
-  selectedPhotos.value
+// The visitor's own photos first, newest beside the empty print, then the latest photos from everyone else
+const carouselPhotos = computed<CarouselPhoto[]>(() => {
+  const ownPhotos = selectedPhotos.value
     .map(photo => ({ id: photo.id, src: photo.previewUrl, alt: photo.file.name, status: photo.status, progress: photo.progress }))
-    .reverse(),
-)
+    .reverse()
+
+  const ownPublicIds = new Set(selectedPhotos.value.map(photo => photo.publicId))
+  const otherGuestPhotos = guestPhotos.value
+    .filter(photo => !ownPublicIds.has(photo.publicId))
+    .slice(0, MAX_GUEST_PRINTS_ON_STRING)
+    .map(photo => ({
+      id: photo.publicId,
+      src: buildCloudinaryImageUrl(cloudName, photo, GUEST_PHOTO_THUMBNAIL_WIDTH_PX),
+      alt: `รูปจาก${getGuestDisplayName(photo)}`,
+      caption: `จาก ${getGuestDisplayName(photo)}`,
+    }))
+
+  return [...ownPhotos, ...otherGuestPhotos]
+})
 
 // Development shortcut: /?mock=5 adds that many gallery photos as if a guest had picked them, to preview the string
 onMounted(async () => {
